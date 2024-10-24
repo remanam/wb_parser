@@ -1,72 +1,79 @@
-import time
+import pandas
+from openpyxl.styles import PatternFill
+from datetime import datetime
 
-from playwright.sync_api import sync_playwright
+import requests
+
+from consts import CATALOG_BASE_URL, BLUZKI_I_RUBASHKI_ROUTE, get_card_link_from_card_id, get_category_endpoint_by_page
+from results.utils import change_color_of_columns
+
+fields = ['card_id', 'product_rating', 'reviews_count', 'product_type']
 
 
-class OzonSellerParse:
-    def __init__(self, keyword: str):
-        self.context = None
-        self.keyword = keyword
-        self.list_seller_name = []
+class Review:
+    def __init__(self, card_link: str, card_name: str, card_id: int, quantity: int, product_type: str,
+                 reviews_count: int, product_rating: int):
+        self.card_link = card_link
+        self.card_name = card_name
+        self.card_id = card_id
+        self.quantity = quantity
+        self.product_type = product_type
+        self.reviews_count = reviews_count
+        self.product_rating = product_rating
 
-    def __scroll_down(self, page):
-        page.evaluate('''
-                                const scrollStep = 200; // Размер шага прокрутки (в пикселях)
-                                const scrollInterval = 100; // Интервал между шагами (в миллисекундах)
 
-                                const scrollHeight = document.documentElement.scrollHeight;
-                                let currentPosition = 0;
-                                const interval = setInterval(() => {
-                                    window.scrollBy(0, scrollStep);
-                                    currentPosition += scrollStep;
+class WBReviewParser:
+    def __init__(self):
+        self.session = requests.Session()
 
-                                    if (currentPosition >= scrollHeight) {
-                                        clearInterval(interval);
-                                    }
-                                }, scrollInterval);
-                            ''')
+    def parse_rubashki_bluzki_reviews(self, from_page: int, to_page: int):
+        products = []
+        for index in range(1, to_page - from_page + 2):
+            url = get_category_endpoint_by_page(page=index)
 
-    def __get_seller_name(self, url: str):
-        page2 = self.context.new_page()
-        page2.goto(url)
-        self.__scroll_down(page=page2)
+            response = self.session.get(url=url)
+            assert response.status_code == 200
+            portion_products = response.json()["data"]["products"]
 
-        seller_name = page2.locator("//div[@data-widget='webCurrentSeller']//a[@title]").get_attribute("title")
-        print(seller_name)
+            for item in portion_products:
+                products.append(item)
 
-    def __get_links(self):
-        self.page.wait_for_selector("#paginatorContent")
-        self.__scroll_down(page=self.page)
-        self.page.wait_for_selector(f':text("Дальше")')
+        result = []
 
-        search_result = self.page.locator("//div[@id='paginatorContent']")
-        links = search_result.locator(".tile-hover-target").all()
-        print(len(links))
+        for product in products:
+            card_id = product["id"]
 
-        count = 0
+            card_link = get_card_link_from_card_id(card_id=card_id)
 
-        for link in links:
-            if count > 5:
-                break
-            url = "https://ozon.ru" + link.get_attribute("href")
-            self.__get_seller_name(url=url)
-            count += 1
+            item = Review(
+                card_link=card_link,
+                card_name=product["brand"] + " " + product["name"],
+                card_id=card_id,
+                quantity=product["totalQuantity"],
+                reviews_count=product["nmFeedbacks"],
+                product_rating=product["nmReviewRating"],
+                product_type=product["entity"]).__dict__
 
-    def parse(self):
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=False, args=["--disable-blink-features=AutomationControlled"])
-            self.context = browser.new_context()
-            self.page = self.context.new_page()
-            self.page.goto("https://ozon.ru")
-            time.sleep(2)
-            self.page.reload()
+            result.append(item)
 
-            time.sleep(1)
-            self.page.get_by_placeholder("Искать на Ozon").type(text=self.keyword, delay=0.3)
-            self.page.locator("//button[@type='submit']").click()
-            time.sleep(1)
-            self.__get_links()
+        today = datetime.today().strftime("%Y-%m-%d")
+
+        filename = f'./results/result_of_{today}.xlsx'
+
+        # Создаем DataFrame из списка объектов Review
+        df = pandas.DataFrame(result)
+
+        # Записываем DataFrame в CSV
+        df.to_excel(filename, index=False, engine='openpyxl')
+
+        # Задаем цвет для заголовков
+        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Желтый цвет
+        change_color_of_columns(filename=filename, color=yellow_fill)
+
+        return result
 
 
 if __name__ == "__main__":
-    parser = OzonSellerParse("Вентилятор").parse()
+    parser = WBReviewParser()
+    parser.parse_rubashki_bluzki_reviews(from_page=1, to_page=2)
+    i = 0
