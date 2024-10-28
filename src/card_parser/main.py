@@ -3,26 +3,28 @@ from openpyxl.styles import PatternFill
 from datetime import datetime
 
 import requests
+from sqlalchemy import create_engine, insert
 
-from consts import CATALOG_BASE_URL, BLUZKI_I_RUBASHKI_ROUTE, get_card_link_from_card_id, get_category_endpoint_by_page
-from results.utils import change_color_of_columns
+from consts import get_card_link_from_card_id, get_category_endpoint_by_page
+from src import config, db_models
+from src.card_parser.utils import change_color_of_columns
 
-fields = ['card_id', 'product_rating', 'reviews_count', 'product_type']
+fields = ['id', 'product_rating', 'reviews_count', 'product_type']
 
 
-class Review:
+class Card:
     def __init__(self, card_link: str, card_name: str, card_id: int, quantity: int, product_type: str,
                  reviews_count: int, product_rating: int):
         self.card_link = card_link
         self.card_name = card_name
-        self.card_id = card_id
+        self.id = card_id
         self.quantity = quantity
         self.product_type = product_type
         self.reviews_count = reviews_count
         self.product_rating = product_rating
 
 
-class WBReviewParser:
+class WBCardParser:
     def __init__(self):
         self.session = requests.Session()
 
@@ -45,7 +47,7 @@ class WBReviewParser:
 
             card_link = get_card_link_from_card_id(card_id=card_id)
 
-            item = Review(
+            item = Card(
                 card_link=card_link,
                 card_name=product["brand"] + " " + product["name"],
                 card_id=card_id,
@@ -56,24 +58,32 @@ class WBReviewParser:
 
             result.append(item)
 
-        today = datetime.today().strftime("%Y-%m-%d")
+        # today = datetime.today().strftime("%Y-%m-%d")
 
-        filename = f'./results/result_of_{today}.xlsx'
-
-        # Создаем DataFrame из списка объектов Review
-        df = pandas.DataFrame(result)
-
-        # Записываем DataFrame в CSV
-        df.to_excel(filename, index=False, engine='openpyxl')
-
-        # Задаем цвет для заголовков
-        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Желтый цвет
-        change_color_of_columns(filename=filename, color=yellow_fill)
+        # filename = f'./results/result_of_{today}.xlsx'
+        #
+        # # Создаем DataFrame из списка объектов Card
+        # df = pandas.DataFrame(result)
+        #
+        # # Записываем DataFrame в CSV
+        # df.to_excel(filename, index=False, engine='openpyxl')
+        #
+        # # Задаем цвет для заголовков
+        # yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Желтый цвет
+        # change_color_of_columns(filename=filename, color=yellow_fill)
 
         return result
 
 
 if __name__ == "__main__":
-    parser = WBReviewParser()
-    parser.parse_rubashki_bluzki_reviews(from_page=1, to_page=2)
+    parser = WBCardParser()
+    cards = parser.parse_rubashki_bluzki_reviews(from_page=1, to_page=3)
+
+    # Создание движка SQLAlchemy
+    t = db_models.Card
+    wb_parser_db = create_engine(config.WB_PARSER_DB_URL).connect()
+
+    wb_parser_db.execute(insert(t).values(cards))
+    wb_parser_db.commit()
+
     i = 0
