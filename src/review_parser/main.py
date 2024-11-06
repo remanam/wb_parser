@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, insert
 
 from consts import get_review_endpoint_by_card_id, HEADERS
 from src import db_models, config
+from src.db_models import Cards
 
 
 class Review:
@@ -28,29 +29,27 @@ class WBReviewParser:
     def __init__(self):
         self.session = requests.Session()
 
-    def parse_reviews(self, root_ids: list):
-        """Сюда передается id карточки wildberies. Дальше парсим список отзывов."""
+    def parse_reviews(self, card: Cards):
+        """card: экземпляр класса Cards. Сразу можем доставать поля таблицы оттуда."""
 
         result = []
 
-        for root_id in root_ids:
+        reviews = self.get_reviews(root_id=card.root_id)
 
-            reviews = self.get_reviews(root_id=root_id)
-
-            for review in reviews:
-                item = Review(id=review["id"],
-                              root_id=root_id,
-                              card_id=review["nmId"],
-                              pros=review["pros"],
-                              cons=review["cons"],
-                              created_at=review["createdDate"],
-                              updated_at=review["updatedDate"],
-                              rating=review["productValuation"],
-                              votes=review.get("votes", None),
-                              text=review.get("text", None),
-                              answer=review.get("anwser", None)
-                              ).__dict__
-                result.append(item)
+        for review in reviews:
+            item = Review(id=review["id"],
+                          root_id=card.root_id,
+                          card_id=card.id,
+                          pros=review["pros"],
+                          cons=review["cons"],
+                          created_at=review["createdDate"],
+                          updated_at=review["updatedDate"],
+                          rating=review["productValuation"],
+                          votes=review.get("votes", None),
+                          text=review.get("text", None),
+                          answer=review.get("anwser", None)
+                          ).__dict__
+            result.append(item)
 
         return result
 
@@ -87,18 +86,6 @@ class WBReviewParser:
 
 if __name__ == "__main__":
 
-    res = requests.get("https://static-basket-01.wbbasket.ru/vol0/data/main-menu-ru-ru-v3.json")
-
     parser = WBReviewParser()
-    reviews = parser.parse_reviews(root_ids=[213323171])
+    reviews = parser.parse_reviews(card=[213323171])
 
-    # Создание движка SQLAlchemy
-    t = db_models.Review
-    wb_parser_db = create_engine(config.WB_PARSER_DB_URL).connect()
-
-    from src import db_models
-    target_metadata = db_models.Base.metadata
-
-    wb_parser_db.execute(insert(t).values(reviews))
-    wb_parser_db.commit()
-    i = 0

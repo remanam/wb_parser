@@ -1,12 +1,12 @@
 # Определяем базовый класс для моделей
-from sqlalchemy import Column, String, Integer, Numeric, Date, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, Date, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, declarative_base
 
 Base = declarative_base()
 
 
 # Определяем модель для таблицы users
-class Card(Base):
+class Cards(Base):
     __tablename__ = 'cards'
 
     id: Mapped[int] = Column(Integer, primary_key=True)
@@ -28,6 +28,7 @@ class CategoriesTable(Base):
     parent: Mapped[int] = Column(Integer, nullable=True)
     url: Mapped[str] = Column(String, nullable=False)
     shard: Mapped[str] = Column(String, nullable=True) # Путь до URL
+    childs: Mapped[dict] = Column(JSON, nullable=True, default= None)
 
 
 class Review(Base):

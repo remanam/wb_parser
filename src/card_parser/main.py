@@ -28,13 +28,18 @@ class WBCardParser:
     def __init__(self):
         self.session = requests.Session()
 
-    def parse_category(self, category: db_models.CategoriesTable(), from_page: int, to_page: int):
+    def parse_category(self, category: db_models.CategoriesTable(), from_page: int, to_page: int) -> list[dict] | None:
         products = []
         for index in range(1, to_page - from_page + 2):
             url = get_category_endpoint_by_page(page=index, category_id=category.id, shard=category.shard)
 
             response = self.session.get(url=url)
-            assert response.status_code == 200
+            try:
+                assert response.status_code == 200
+            except:
+                print(response.status_code)
+                print(response.request.url)
+                return
             portion_products = response.json()["data"]["products"]
 
             for item in portion_products:
@@ -64,7 +69,7 @@ class WBCardParser:
 
         # filename = f'./results/result_of_{today}.xlsx'
         #
-        # # Создаем DataFrame из списка объектов Card
+        # # Создаем DataFrame из списка объектов Cards
         # df = pandas.DataFrame(result)
         #
         # # Записываем DataFrame в CSV
@@ -85,10 +90,10 @@ if __name__ == "__main__":
     category_id = wb_parser_db.execute(select(t).where(t.name == "Рубашки")).fetchall()[0][0]
 
     parser = WBCardParser()
-    cards = parser.parse_category(category_id=category_id, from_page=1, to_page=3)
+    cards = parser.parse_category(category_id=category_id, from_page=1, to_page=1)
 
     # Создание движка SQLAlchemy
-    t = db_models.Card
+    t = db_models.Cards
 
 
     wb_parser_db.execute(insert(t).values(cards))
