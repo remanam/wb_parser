@@ -76,10 +76,7 @@ class WBReviewParser:
 
         response = self.session.get(
             url=url,
-            headers=headers,
-            proxies={
-                'https': 'http://SEF8UZ:aVab4MYAAPbu@dproxy.site:15091',
-            }
+            headers=headers
         )
         return response
 

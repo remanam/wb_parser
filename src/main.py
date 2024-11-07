@@ -8,8 +8,10 @@ from sqlalchemy.orm import sessionmaker, Session
 from consts import CATEGORIES_URL, CATEGORY_NAMES_WITH_SECOND_HIERARCHY
 from src import db_models, config
 from src.card_parser.main import WBCardParser
-from src.db_models import CategoriesTable, Base
+from src.db_models import CategoriesTable, Base, Cards
 import os
+
+from src.review_parser.main import WBReviewParser
 
 os.system("cls")
 # Определяем ANSI escape codes для цветов
@@ -191,30 +193,38 @@ if __name__ == "__main__":
     #             CategoriesTable.parent != None,
     #             not_(CategoriesTable.name.in_(CATEGORY_NAMES_WITH_SECOND_HIERARCHY))))
     # )).scalars().all()
-    categories = session.query(db_models.CategoriesTable).filter(and_(CategoriesTable.parent != None,
-                                                                      CategoriesTable.childs == None,
-                                                                      CategoriesTable.name != "Цифровые товары",
-                                                                      CategoriesTable.name != "Путешествия",
-                                                                      CategoriesTable.name != "Цифровые аудиокниги",
-                                                                      CategoriesTable.name != "Цифровые книги",
-                                                                      CategoriesTable.id != 131389)).all()
-    category_ids = [category.id for category in categories]
-
+    # categories = session.query(db_models.CategoriesTable).filter(and_(CategoriesTable.parent != None,
+    #                                                                   CategoriesTable.childs == None,
+    #                                                                   CategoriesTable.name != "Цифровые товары",
+    #                                                                   CategoriesTable.name != "Путешествия",
+    #                                                                   CategoriesTable.name != "Цифровые аудиокниги",
+    #                                                                   CategoriesTable.name != "Цифровые книги",
+    #                                                                   CategoriesTable.id != 131389)).all()
+    # category_ids = [category.id for category in categories]
     # ---------------------------------
     # Парсим карточки товаров, передавая в них category_id (Чтобы умели указывать категорию
     # У карточек есть root_id, он нужен, чтобы парсить отзывы
-    parser = WBCardParser()
-
-    for category in categories:
-        cards = parser.parse_category(from_page=1, to_page=1, category=category)
-
-        insert_or_update_to_db(wb_parser_db=session, db_model=db_models.Cards, items_to_add=cards)
-
-        print(BLUE + "Сбор карточек - страница " + RESET + GREEN + "TODO" + RESET)
-        print("Категория " + GREEN + "id = " + str(
-            category.id) + "; Название = " + category.name + RESET + " ---------------- Готово")
-        print("------------------")
+    # parser = WBCardParser()
+    #
+    # for category in categories:
+    #     cards = parser.parse_category(from_page=1, to_page=1, category=category)
+    #
+    #     insert_or_update_to_db(wb_parser_db=session, db_model=db_models.Cards, items_to_add=cards)
+    #
+    #     print(BLUE + "Сбор карточек - страница " + RESET + GREEN + "TODO" + RESET)
+    #     print("Категория " + GREEN + "id = " + str(
+    #         category.id) + "; Название = " + category.name + RESET + " ---------------- Готово")
+    #     print("------------------")
 
     # ----------------------------------------
     # Парсим отзывы, отзывы храним привязанно к карточкам, карточки привязаны к категориям.
     # Это итоговый результат парсера.
+    review_parser = WBReviewParser()
+
+    card_for_review_parsing = session.execute(select(Cards).where(Cards.reviews_count >= 500)).fetchone()[0]
+
+    reviews = review_parser.parse_reviews(card=card_for_review_parsing)
+    insert_or_update_to_db(wb_parser_db=session, db_model=db_models.Review, items_to_add=reviews)
+    i = 0
+
+
