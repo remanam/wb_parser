@@ -1,7 +1,15 @@
+import os
 import random
 
 WB_FRONT_BASE_URL = "https://wildberries.ru/"
 
+os.system("cls")
+# Определяем ANSI escape codes для цветов
+RED = '\033[91m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+RESET = '\033[0m'  # Сброс цвета
 
 def get_card_link_from_card_id(card_id: int) -> str:
     return WB_FRONT_BASE_URL + f"catalog/{card_id}/detail.aspx"

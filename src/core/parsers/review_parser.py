@@ -2,11 +2,9 @@ import random
 import time
 
 import requests
-from sqlalchemy import create_engine, insert
 
-from consts import get_review_endpoint_by_card_id, HEADERS
-from src import db_models, config
-from src.db_models import Cards
+from src.core.consts import HEADERS, BLUE, RESET
+from src.models.db_models import Cards
 
 
 class Review:
@@ -29,14 +27,29 @@ class WBReviewParser:
     def __init__(self):
         self.session = requests.Session()
 
-    def parse_reviews(self, card: Cards):
+    def parse_reviews(self, card: Cards) -> list[dict]:
         """card: экземпляр класса Cards. Сразу можем доставать поля таблицы оттуда."""
 
         result = []
 
         reviews = self.get_reviews(root_id=card.root_id)
 
+        i = 0
         for review in reviews:
+            # Отзывы без текста нам не нужны.
+
+            try:
+                if review["text"] is None or review["text"] =="": continue
+            except:
+                print(BLUE + f"Проблема с карточкой товара!" + RESET)
+                print(f"{review}")
+                print(f"id карточки = {card.id}")
+                print(f"root_id карточка = {card.root_id}")
+                print(f"Название товара {card.card_name}")
+                print(f"{card.category_id}")
+
+            i += 1
+
             item = Review(id=review["id"],
                           root_id=card.root_id,
                           card_id=card.id,
@@ -51,6 +64,7 @@ class WBReviewParser:
                           ).__dict__
             result.append(item)
 
+        print(f"Количество отзывов {i} отзывы добавлены")
         return result
 
     def get_reviews(self, root_id: int) -> dict:
@@ -81,8 +95,4 @@ class WBReviewParser:
         return response
 
 
-if __name__ == "__main__":
-
-    parser = WBReviewParser()
-    reviews = parser.parse_reviews(card=[213323171])
 

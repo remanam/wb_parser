@@ -1,13 +1,6 @@
-import pandas
-from openpyxl.styles import PatternFill
-from datetime import datetime
-
 import requests
-from sqlalchemy import create_engine, insert, select
 
-from consts import get_card_link_from_card_id, get_category_endpoint_by_page
-from src import config, db_models
-from src.db_models import CategoriesTable
+from src.core.consts import get_card_link_from_card_id, get_category_endpoint_by_page
 
 
 class Card:
@@ -28,10 +21,10 @@ class WBCardParser:
     def __init__(self):
         self.session = requests.Session()
 
-    def parse_category(self, category: db_models.CategoriesTable(), from_page: int, to_page: int) -> list[dict] | None:
+    def parse_cards_from_category(self, category: dict, from_page: int, to_page: int) -> list[dict] | None:
         products = []
         for index in range(1, to_page - from_page + 2):
-            url = get_category_endpoint_by_page(page=index, category_id=category.id, shard=category.shard)
+            url = get_category_endpoint_by_page(page=index, category_id=category["id"], shard=category["shard"])
 
             response = self.session.get(url=url)
             try:
@@ -61,7 +54,7 @@ class WBCardParser:
                 reviews_count=product["nmFeedbacks"],
                 product_rating=product["nmReviewRating"],
                 product_type=product["entity"],
-                category_id=category.id).__dict__
+                category_id=category["id"]).__dict__
 
             result.append(item)
 
@@ -81,22 +74,3 @@ class WBCardParser:
 
         return result
 
-
-if __name__ == "__main__":
-    wb_parser_db = create_engine(config.WB_PARSER_DB_URL).connect()
-
-
-    t = CategoriesTable
-    category_id = wb_parser_db.execute(select(t).where(t.name == "Рубашки")).fetchall()[0][0]
-
-    parser = WBCardParser()
-    cards = parser.parse_category(category_id=category_id, from_page=1, to_page=1)
-
-    # Создание движка SQLAlchemy
-    t = db_models.Cards
-
-
-    wb_parser_db.execute(insert(t).values(cards))
-    wb_parser_db.commit()
-
-    i = 0

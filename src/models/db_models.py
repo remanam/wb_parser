@@ -12,7 +12,7 @@ class Cards(Base):
     id: Mapped[int] = Column(Integer, primary_key=True)
     card_name: Mapped[str] = Column(String, nullable=False)
     root_id: Mapped[int] = Column(Integer, nullable=False)
-    category_id: Mapped[int] = Column(Integer, ForeignKey("categories.id"), nullable=True)  # Внешний ключ
+    category_id: Mapped[int] = Column(Integer, ForeignKey("Category.id"), nullable=True)  # Внешний ключ
     card_link: Mapped[str] = Column(String, nullable=False)
     quantity: Mapped[int] = Column(Integer, nullable=False)
     reviews_count: Mapped[int] = Column(Integer, nullable=False)
